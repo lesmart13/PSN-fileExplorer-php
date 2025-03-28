@@ -1,6 +1,4 @@
-<?php 
-    header('Content-Type: text/html; charset=UTF-8');
- ?>
+<?php header('Content-Type: text/html; charset=UTF-8'); ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -30,7 +28,7 @@
         .header {
             position: sticky;
             top: 0;
-            background: transparent; /* Removed white background */
+            background: transparent;
             padding: 1rem;
             z-index: 10;
             display: flex;
@@ -53,6 +51,12 @@
         .breadcrumbs span:hover {
             color: #0d47a1;
         }
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
         .search-bar {
             display: flex;
             align-items: center;
@@ -60,9 +64,9 @@
             border-radius: 20px;
             padding: 0.5rem 1rem;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-            flex: 1;
-            max-width: 300px;
             min-width: 150px;
+            max-width: 400px;
+            overflow: hidden;
         }
         .search-bar input {
             border: none;
@@ -70,12 +74,33 @@
             font-size: 1rem;
             width: 100%;
             background: transparent;
+            resize: horizontal;
+            min-width: 100px;
+            max-width: 100%;
+            padding: 0 0.5rem;
+        }
+        .view-select {
+            padding: 0.5rem;
+            border-radius: 8px;
+            border: 1px solid #1976d2;
+            background: rgba(255, 255, 255, 0.9);
+            color: #1976d2;
+            font-size: 0.9rem;
         }
         .file-list {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
             gap: 1rem;
             padding: 1rem;
+            transition: all 0.3s ease;
+        }
+        .file-list.small {
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        }
+        .file-list.medium {
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        }
+        .file-list.large {
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
         }
         .file-item {
             background: #fff;
@@ -98,6 +123,8 @@
         .file-icon {
             font-size: 1.5rem;
         }
+        .file-list.small .file-icon { font-size: 1.2rem; }
+        .file-list.large .file-icon { font-size: 1.8rem; }
         .folder .file-icon { color: #1976d2; }
         .file .file-icon { color: #757575; }
         .fab-container {
@@ -119,7 +146,7 @@
             align-items: center;
             justify-content: center;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-            transition: transform 0.2s, background 0.2s;
+            transition: transform 0.2s, background 0.2s, opacity 0.2s;
         }
         .fab:hover {
             transform: scale(1.1);
@@ -133,27 +160,40 @@
         .fab.secondary:hover {
             background: #f5f5f5;
         }
-        /* Enhanced Responsiveness */
+        .fab.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .context-menu {
+            position: absolute;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            z-index: 30;
+            display: none;
+            padding: 0.5rem 0;
+        }
+        .context-menu div {
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .context-menu div:hover {
+            background: #f5f5f5;
+        }
         @media (max-width: 1024px) {
-            .file-list {
-                grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-            }
+            .file-list.small { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+            .file-list.medium { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+            .file-list.large { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
         }
         @media (max-width: 768px) {
-            .file-list {
-                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-                padding: 0.75rem;
-            }
-            .header {
-                padding: 0.75rem;
-            }
-            .search-bar {
-                max-width: 250px;
-            }
-            .fab {
-                width: 40px;
-                height: 40px;
-            }
+            .file-list.small { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
+            .file-list.medium { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+            .file-list.large { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+            .header { padding: 0.75rem; }
+            .fab { width: 40px; height: 40px; }
         }
         @media (max-width: 480px) {
             .header {
@@ -161,30 +201,26 @@
                 align-items: flex-start;
                 padding: 0.5rem;
             }
+            .controls {
+                width: 100%;
+                justify-content: space-between;
+            }
             .search-bar {
                 max-width: 100%;
                 width: 100%;
                 margin-top: 0.5rem;
             }
             .file-list {
-                grid-template-columns: 1fr;
-                padding: 0.5rem;
+                grid-template-columns: 1fr !important;
             }
-            .file-item {
-                padding: 0.75rem;
-            }
+            .file-item { padding: 0.75rem; }
             .fab-container {
                 bottom: 0.5rem;
                 right: 0.5rem;
                 gap: 0.5rem;
             }
-            .fab {
-                width: 36px;
-                height: 36px;
-            }
-            .file-icon {
-                font-size: 1.2rem;
-            }
+            .fab { width: 36px; height: 36px; }
+            .file-icon { font-size: 1.2rem !important; }
         }
     </style>
 </head>
@@ -194,12 +230,19 @@
             <div class="breadcrumbs" id="breadcrumbs">
                 <span onclick="fetchFiles('')">/</span>
             </div>
-            <div class="search-bar">
-                <span class="material-icons">search</span>
-                <input type="text" id="searchInput" placeholder="Search files..." oninput="searchFiles()">
+            <div class="controls">
+                <div class="search-bar">
+                    <span class="material-icons">search</span>
+                    <input type="text" id="searchInput" placeholder="Search files..." oninput="searchFiles()">
+                </div>
+                <select class="view-select" onchange="changeViewSize(this.value)">
+                    <option value="medium">Medium</option>
+                    <option value="small">Small</option>
+                    <option value="large">Large</option>
+                </select>
             </div>
         </div>
-        <div id="fileList" class="file-list"></div>
+        <div id="fileList" class="file-list medium"></div>
     </div>
     <div class="fab-container">
         <button class="fab" onclick="createFolder()" title="New Folder">
@@ -209,27 +252,38 @@
             <span class="material-icons">upload_file</span>
             <input type="file" id="fileUpload" onchange="uploadFile()" style="display: none;">
         </label>
-        <button class="fab secondary" onclick="cutFile()" title="Cut">
+        <button id="cutBtn" class="fab secondary hidden" onclick="cutFile()" title="Cut">
             <span class="material-icons">content_cut</span>
         </button>
-        <button class="fab secondary" onclick="copyFile()" title="Copy">
+        <button id="copyBtn" class="fab secondary hidden" onclick="copyFile()" title="Copy">
             <span class="material-icons">content_copy</span>
         </button>
-        <button class="fab secondary" onclick="pasteFile()" title="Paste">
+        <button id="pasteBtn" class="fab secondary hidden" onclick="pasteFile()" title="Paste">
             <span class="material-icons">content_paste</span>
         </button>
-        <button class="fab secondary" onclick="deleteFile()" title="Delete">
+        <button id="deleteBtn" class="fab secondary hidden" onclick="deleteFile()" title="Delete">
             <span class="material-icons">delete</span>
+        </button>
+        <button id="downloadBtn" class="fab secondary hidden" onclick="downloadSelectedFile()" title="Download">
+            <span class="material-icons">download</span>
         </button>
         <button class="fab secondary" onclick="shareFile()" title="Share">
             <span class="material-icons">share</span>
         </button>
+    </div>
+    <div id="contextMenu" class="context-menu">
+        <div onclick="createFolder()"><span class="material-icons">create_new_folder</span>New Folder</div>
+        <div onclick="document.getElementById('fileUpload').click()"><span class="material-icons">upload_file</span>Upload File</div>
+        <div onclick="alert('Folder upload not implemented yet')"><span class="material-icons">folder</span>Upload Folder</div>
+        <div onclick="alert('Personalize feature coming soon!')"><span class="material-icons">palette</span>Personalize</div>
+        <div onclick="alert('Settings feature coming soon!')"><span class="material-icons">settings</span>Settings</div>
     </div>
 
     <script>
         let currentPath = '';
         let clipboard = { type: null, path: null };
         let allFiles = [];
+        let selectedFile = null;
 
         function fetchFiles(path = '') {
             fetch('file_explorer.php?action=list&path=' + encodeURIComponent(path))
@@ -253,21 +307,88 @@
                 const div = document.createElement('div');
                 div.className = `file-item ${item.isDir ? 'folder' : 'file'}`;
                 div.dataset.path = currentPath ? `${currentPath}/${item.name}` : item.name;
+                div.dataset.isDir = item.isDir;
                 div.innerHTML = `
                     <span class="file-icon material-icons">${item.isDir ? 'folder' : 'insert_drive_file'}</span>
                     <span>${item.name}</span>
                 `;
                 div.onclick = (e) => {
                     if (e.ctrlKey) {
-                        div.classList.toggle('selected');
-                    } else if (item.isDir) {
-                        fetchFiles(div.dataset.path);
+                        toggleSelection(div);
                     } else {
-                        downloadFile(div.dataset.path);
+                        if (item.isDir) {
+                            fetchFiles(div.dataset.path);
+                        } else {
+                            toggleSelection(div);
+                        }
                     }
+                };
+                div.oncontextmenu = (e) => {
+                    e.preventDefault();
+                    if (!div.classList.contains('selected')) toggleSelection(div);
+                    showFileContextMenu(e, div);
                 };
                 fileList.appendChild(div);
             });
+            fileList.oncontextmenu = (e) => {
+                e.preventDefault();
+                showAreaContextMenu(e);
+            };
+            updateFABVisibility();
+        }
+
+        function toggleSelection(div) {
+            if (selectedFile && selectedFile !== div) {
+                selectedFile.classList.remove('selected');
+            }
+            div.classList.toggle('selected');
+            selectedFile = div.classList.contains('selected') ? div : null;
+            updateFABVisibility();
+        }
+
+        function updateFABVisibility() {
+            const hasSelection = !!selectedFile;
+            const hasClipboard = !!clipboard.path;
+            const isFileSelected = hasSelection && selectedFile.dataset.isDir === 'false';
+            document.getElementById('cutBtn').classList.toggle('hidden', !hasSelection);
+            document.getElementById('copyBtn').classList.toggle('hidden', !hasSelection);
+            document.getElementById('pasteBtn').classList.toggle('hidden', !hasClipboard);
+            document.getElementById('deleteBtn').classList.toggle('hidden', !hasSelection);
+            document.getElementById('downloadBtn').classList.toggle('hidden', !isFileSelected);
+        }
+
+        function showFileContextMenu(e, div) {
+            const menu = document.getElementById('contextMenu');
+            menu.innerHTML = `
+                <div onclick="cutFile()"><span class="material-icons">content_cut</span>Cut</div>
+                <div onclick="copyFile()"><span class="material-icons">content_copy</span>Copy</div>
+                <div onclick="pasteFile()"><span class="material-icons">content_paste</span>Paste</div>
+                <div onclick="deleteFile()"><span class="material-icons">delete</span>Delete</div>
+                ${div.dataset.isDir === 'false' ? '<div onclick="downloadSelectedFile()"><span class="material-icons">download</span>Download</div>' : ''}
+            `;
+            menu.style.display = 'block';
+            menu.style.left = `${e.pageX}px`;
+            menu.style.top = `${e.pageY}px`;
+            document.addEventListener('click', hideContextMenu, { once: true });
+        }
+
+        function showAreaContextMenu(e) {
+            const menu = document.getElementById('contextMenu');
+            menu.innerHTML = `
+                <div onclick="createFolder()"><span class="material-icons">create_new_folder</span>New Folder</div>
+                <div onclick="document.getElementById('fileUpload').click()"><span class="material-icons">upload_file</span>Upload File</div>
+                <div onclick="alert('Folder upload not implemented yet')"><span class="material-icons">folder</span>Upload Folder</div>
+                <div onclick="alert('Personalize feature coming soon!')"><span class="material-icons">palette</span>Personalize</div>
+                <div onclick="alert('Settings feature coming soon!')"><span class="material-icons">settings</span>Settings</div>
+            `;
+            menu.style.display = 'block';
+            menu.style.left = `${e.pageX}px`;
+            menu.style.top = `${e.pageY}px`;
+            document.addEventListener('click', hideContextMenu, { once: true });
+        }
+
+        function hideContextMenu() {
+            document.getElementById('contextMenu').style.display = 'none';
         }
 
         function updateBreadcrumbs() {
@@ -284,6 +405,11 @@
                     breadcrumbs.appendChild(span);
                 });
             }
+        }
+
+        function changeViewSize(size) {
+            const fileList = document.getElementById('fileList');
+            fileList.className = `file-list ${size}`;
         }
 
         function createFolder() {
@@ -320,6 +446,11 @@
                 .catch(error => alert('Error uploading file: ' + error));
         }
 
+        function downloadSelectedFile() {
+            if (!selectedFile || selectedFile.dataset.isDir === 'true') return alert('Select a file to download!');
+            downloadFile(selectedFile.dataset.path);
+        }
+
         function downloadFile(filePath) {
             const link = document.createElement('a');
             link.href = 'file_explorer.php?action=download&path=' + encodeURIComponent(filePath);
@@ -330,19 +461,21 @@
         }
 
         function cutFile() {
-            const selected = document.querySelector('.file-item.selected');
-            if (!selected) return alert('Select a file or folder first!');
-            clipboard = { type: 'cut', path: selected.dataset.path };
-            selected.classList.remove('selected');
+            if (!selectedFile) return alert('Select a file or folder first!');
+            clipboard = { type: 'cut', path: selectedFile.dataset.path };
+            selectedFile.classList.remove('selected');
+            selectedFile = null;
             alert('Item cut to clipboard');
+            updateFABVisibility();
         }
 
         function copyFile() {
-            const selected = document.querySelector('.file-item.selected');
-            if (!selected) return alert('Select a file or folder first!');
-            clipboard = { type: 'copy', path: selected.dataset.path };
-            selected.classList.remove('selected');
+            if (!selectedFile) return alert('Select a file or folder first!');
+            clipboard = { type: 'copy', path: selectedFile.dataset.path };
+            selectedFile.classList.remove('selected');
+            selectedFile = null;
             alert('Item copied to clipboard');
+            updateFABVisibility();
         }
 
         function pasteFile() {
@@ -360,15 +493,15 @@
         }
 
         function deleteFile() {
-            const selected = document.querySelector('.file-item.selected');
-            if (!selected) return alert('Select a file or folder first!');
-            if (!confirm('Are you sure you want to delete ' + selected.dataset.path.split('/').pop() + '?')) return;
-            fetch('file_explorer.php?action=delete&path=' + encodeURIComponent(selected.dataset.path), {
+            if (!selectedFile) return alert('Select a file or folder first!');
+            if (!confirm('Are you sure you want to delete ' + selectedFile.dataset.path.split('/').pop() + '?')) return;
+            fetch('file_explorer.php?action=delete&path=' + encodeURIComponent(selectedFile.dataset.path), {
                 method: 'POST'
             })
                 .then(response => response.text())
                 .then(msg => {
                     alert(msg);
+                    selectedFile = null;
                     fetchFiles(currentPath);
                 })
                 .catch(error => alert('Error deleting: ' + error));
@@ -382,9 +515,21 @@
         }
 
         function searchFiles() {
-            const query = document.getElementById('searchInput').value.toLowerCase();
-            const filtered = allFiles.filter(item => item.name.toLowerCase().includes(query));
-            renderFileList(filtered);
+            const query = document.getElementById('searchInput').value.trim();
+            if (!query) {
+                fetchFiles(currentPath);
+                return;
+            }
+            fetch('file_explorer.php?action=search&query=' + encodeURIComponent(query) + '&path=' + encodeURIComponent(currentPath))
+                .then(response => {
+                    if (!response.ok) throw new Error('Search failed');
+                    return response.json();
+                })
+                .then(data => {
+                    allFiles = data;
+                    renderFileList(data);
+                })
+                .catch(error => alert('Error searching files: ' + error));
         }
 
         fetchFiles();
