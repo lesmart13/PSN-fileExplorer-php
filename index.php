@@ -281,6 +281,7 @@
         let clipboard = { type: null, path: null };
         let allFiles = [];
         let selectedFile = null;
+        const hiddenItems = ['.git', 'README.md']; // Items to hide
 
         document.body.addEventListener('contextmenu', (e) => {
             e.preventDefault();
@@ -321,7 +322,8 @@
         function renderFileList(files) {
             const fileList = document.getElementById('fileList');
             fileList.innerHTML = '';
-            files.forEach(item => {
+            const filteredFiles = files.filter(item => !hiddenItems.includes(item.name));
+            filteredFiles.forEach(item => {
                 const div = document.createElement('div');
                 div.className = `file-item ${item.isDir ? 'folder' : 'file'}`;
                 div.dataset.path = currentPath ? `${currentPath}/${item.name}` : item.name;
