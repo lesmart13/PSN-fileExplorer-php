@@ -172,6 +172,7 @@
             z-index: 30;
             display: none;
             padding: 0.5rem 0;
+            max-width: 200px;
         }
         .context-menu div {
             padding: 0.5rem 1rem;
@@ -179,6 +180,7 @@
             display: flex;
             align-items: center;
             gap: 0.5rem;
+            white-space: nowrap;
         }
         .context-menu div:hover {
             background: #f5f5f5;
@@ -221,10 +223,11 @@
             }
             .fab { width: 36px; height: 36px; }
             .file-icon { font-size: 1.2rem !important; }
+            .context-menu { max-width: 150px; }
         }
     </style>
 </head>
-<body>
+<body oncontextmenu="return false;">
     <div class="container">
         <div class="header">
             <div class="breadcrumbs" id="breadcrumbs">
@@ -271,19 +274,34 @@
             <span class="material-icons">share</span>
         </button>
     </div>
-    <div id="contextMenu" class="context-menu">
-        <div onclick="createFolder()"><span class="material-icons">create_new_folder</span>New Folder</div>
-        <div onclick="document.getElementById('fileUpload').click()"><span class="material-icons">upload_file</span>Upload File</div>
-        <div onclick="alert('Folder upload not implemented yet')"><span class="material-icons">folder</span>Upload Folder</div>
-        <div onclick="alert('Personalize feature coming soon!')"><span class="material-icons">palette</span>Personalize</div>
-        <div onclick="alert('Settings feature coming soon!')"><span class="material-icons">settings</span>Settings</div>
-    </div>
+    <div id="contextMenu" class="context-menu"></div>
 
     <script>
         let currentPath = '';
         let clipboard = { type: null, path: null };
         let allFiles = [];
         let selectedFile = null;
+
+        document.body.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            const fileItem = e.target.closest('.file-item');
+            if (fileItem) {
+                showFileContextMenu(e, fileItem);
+            } else {
+                showAppContextMenu(e);
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            const fileItem = e.target.closest('.file-item');
+            const contextMenu = document.getElementById('contextMenu');
+            const fab = e.target.closest('.fab');
+            if (!fileItem && !contextMenu.contains(e.target) && !fab && selectedFile) {
+                selectedFile.classList.remove('selected');
+                selectedFile = null;
+                updateFABVisibility();
+            }
+        });
 
         function fetchFiles(path = '') {
             fetch('file_explorer.php?action=list&path=' + encodeURIComponent(path))
@@ -323,17 +341,8 @@
                         }
                     }
                 };
-                div.oncontextmenu = (e) => {
-                    e.preventDefault();
-                    if (!div.classList.contains('selected')) toggleSelection(div);
-                    showFileContextMenu(e, div);
-                };
                 fileList.appendChild(div);
             });
-            fileList.oncontextmenu = (e) => {
-                e.preventDefault();
-                showAreaContextMenu(e);
-            };
             updateFABVisibility();
         }
 
@@ -357,7 +366,32 @@
             document.getElementById('downloadBtn').classList.toggle('hidden', !isFileSelected);
         }
 
+        function adjustMenuPosition(menu, x, y) {
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            const menuWidth = menu.offsetWidth;
+            const menuHeight = menu.offsetHeight;
+
+            let adjustedX = x;
+            let adjustedY = y;
+
+            if (x + menuWidth > viewportWidth) {
+                adjustedX = viewportWidth - menuWidth - 10;
+            }
+            if (adjustedX < 0) adjustedX = 0;
+
+            if (y + menuHeight > viewportHeight) {
+                adjustedY = viewportHeight - menuHeight - 10;
+            }
+            if (adjustedY < 0) adjustedY = 0;
+
+            menu.style.left = `${adjustedX}px`;
+            menu.style.top = `${adjustedY}px`;
+        }
+
         function showFileContextMenu(e, div) {
+            selectedFile = div;
+            if (!div.classList.contains('selected')) toggleSelection(div);
             const menu = document.getElementById('contextMenu');
             menu.innerHTML = `
                 <div onclick="cutFile()"><span class="material-icons">content_cut</span>Cut</div>
@@ -367,12 +401,11 @@
                 ${div.dataset.isDir === 'false' ? '<div onclick="downloadSelectedFile()"><span class="material-icons">download</span>Download</div>' : ''}
             `;
             menu.style.display = 'block';
-            menu.style.left = `${e.pageX}px`;
-            menu.style.top = `${e.pageY}px`;
+            adjustMenuPosition(menu, e.pageX, e.pageY);
             document.addEventListener('click', hideContextMenu, { once: true });
         }
 
-        function showAreaContextMenu(e) {
+        function showAppContextMenu(e) {
             const menu = document.getElementById('contextMenu');
             menu.innerHTML = `
                 <div onclick="createFolder()"><span class="material-icons">create_new_folder</span>New Folder</div>
@@ -382,8 +415,7 @@
                 <div onclick="alert('Settings feature coming soon!')"><span class="material-icons">settings</span>Settings</div>
             `;
             menu.style.display = 'block';
-            menu.style.left = `${e.pageX}px`;
-            menu.style.top = `${e.pageY}px`;
+            adjustMenuPosition(menu, e.pageX, e.pageY);
             document.addEventListener('click', hideContextMenu, { once: true });
         }
 
