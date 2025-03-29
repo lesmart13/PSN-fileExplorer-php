@@ -185,6 +185,60 @@
         .context-menu div:hover {
             background: #f5f5f5;
         }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 40;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            width: 300px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        .modal-content h2 {
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+            color: #1976d2;
+        }
+        .modal-content input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        .modal-content button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        .modal-content .create-btn {
+            background: #1976d2;
+            color: #fff;
+            margin-right: 10px;
+        }
+        .modal-content .create-btn:hover {
+            background: #0d47a1;
+        }
+        .modal-content .cancel-btn {
+            background: #ccc;
+            color: #333;
+        }
+        .modal-content .cancel-btn:hover {
+            background: #bbb;
+        }
         @media (max-width: 1024px) {
             .file-list.small { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
             .file-list.medium { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
@@ -224,6 +278,7 @@
             .fab { width: 36px; height: 36px; }
             .file-icon { font-size: 1.2rem !important; }
             .context-menu { max-width: 150px; }
+            .modal-content { width: 90%; }
         }
     </style>
 </head>
@@ -248,7 +303,7 @@
         <div id="fileList" class="file-list medium"></div>
     </div>
     <div class="fab-container">
-        <button class="fab" onclick="createFolder()" title="New Folder">
+        <button class="fab" onclick="showCreateFolderModal()" title="New Folder">
             <span class="material-icons">create_new_folder</span>
         </button>
         <label class="fab secondary" title="Upload File">
@@ -275,13 +330,21 @@
         </button>
     </div>
     <div id="contextMenu" class="context-menu"></div>
+    <div id="createFolderModal" class="modal">
+        <div class="modal-content">
+            <h2>Create New Folder</h2>
+            <input type="text" id="folderNameInput" placeholder="Enter folder name">
+            <button class="create-btn" onclick="createFolder()">Create</button>
+            <button class="cancel-btn" onclick="hideCreateFolderModal()">Cancel</button>
+        </div>
+    </div>
 
     <script>
         let currentPath = '';
         let clipboard = { type: null, path: null };
         let allFiles = [];
         let selectedFile = null;
-        const hiddenItems = ['.git', 'README.md']; // Items to hide
+        const hiddenItems = ['.git', 'README.md', 'index.php', 'file_explorer.php']; // Updated to hide app files
 
         document.body.addEventListener('contextmenu', (e) => {
             e.preventDefault();
@@ -297,7 +360,8 @@
             const fileItem = e.target.closest('.file-item');
             const contextMenu = document.getElementById('contextMenu');
             const fab = e.target.closest('.fab');
-            if (!fileItem && !contextMenu.contains(e.target) && !fab && selectedFile) {
+            const modal = document.getElementById('createFolderModal');
+            if (!fileItem && !contextMenu.contains(e.target) && !fab && !modal.contains(e.target) && selectedFile) {
                 selectedFile.classList.remove('selected');
                 selectedFile = null;
                 updateFABVisibility();
@@ -410,7 +474,7 @@
         function showAppContextMenu(e) {
             const menu = document.getElementById('contextMenu');
             menu.innerHTML = `
-                <div onclick="createFolder()"><span class="material-icons">create_new_folder</span>New Folder</div>
+                <div onclick="showCreateFolderModal()"><span class="material-icons">create_new_folder</span>New Folder</div>
                 <div onclick="document.getElementById('fileUpload').click()"><span class="material-icons">upload_file</span>Upload File</div>
                 <div onclick="alert('Folder upload not implemented yet')"><span class="material-icons">folder</span>Upload Folder</div>
                 <div onclick="alert('Personalize feature coming soon!')"><span class="material-icons">palette</span>Personalize</div>
@@ -423,6 +487,51 @@
 
         function hideContextMenu() {
             document.getElementById('contextMenu').style.display = 'none';
+        }
+
+        function showCreateFolderModal() {
+            const modal = document.getElementById('createFolderModal');
+            const input = document.getElementById('folderNameInput');
+            input.value = '';
+            modal.style.display = 'flex';
+            input.focus();
+        }
+
+        function hideCreateFolderModal() {
+            document.getElementById('createFolderModal').style.display = 'none';
+        }
+
+        function createFolder() {
+            const folderName = document.getElementById('folderNameInput').value.trim();
+            if (!folderName) {
+                alert('Please enter a folder name.');
+                return;
+            }
+            const formData = new FormData();
+            formData.append('action', 'createFolder');
+            formData.append('path', currentPath);
+            formData.append('name', folderName);
+
+            fetch('file_explorer.php', {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+                    return response.text();
+                })
+                .then(msg => {
+                    console.log('Create folder response:', msg); // Debug log
+                    alert(msg);
+                    if (msg.includes('successfully')) {
+                        hideCreateFolderModal();
+                        fetchFiles(currentPath);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error creating folder:', error);
+                    alert('Error creating folder: ' + error.message);
+                });
         }
 
         function updateBreadcrumbs() {
@@ -446,20 +555,6 @@
             fileList.className = `file-list ${size}`;
         }
 
-        function createFolder() {
-            const folderName = prompt('Enter folder name:');
-            if (!folderName) return;
-            fetch('file_explorer.php?action=createFolder&path=' + encodeURIComponent(currentPath) + '&name=' + encodeURIComponent(folderName), {
-                method: 'POST'
-            })
-                .then(response => response.text())
-                .then(msg => {
-                    alert(msg);
-                    fetchFiles(currentPath);
-                })
-                .catch(error => alert('Error creating folder: ' + error));
-        }
-
         function uploadFile() {
             const fileInput = document.getElementById('fileUpload');
             const file = fileInput.files[0];
@@ -467,7 +562,8 @@
             const formData = new FormData();
             formData.append('file', file);
             formData.append('path', currentPath);
-            fetch('file_explorer.php?action=upload', {
+            formData.append('action', 'upload');
+            fetch('file_explorer.php', {
                 method: 'POST',
                 body: formData
             })

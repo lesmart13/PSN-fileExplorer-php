@@ -1,152 +1,172 @@
 <?php
-    header('Content-Type: application/json; charset=UTF-8');
-    $baseDir = __DIR__; // Root directory (server's current directory)
-    $hiddenFiles = ['index.php', 'file_explorer.php']; // Files to hide
+header('Content-Type: text/plain');
+$action = $_GET['action'] ?? $_POST['action'] ?? '';
+$path = $_GET['path'] ?? $_POST['path'] ?? '';
+$baseDir = './'; // Base directory (adjust as needed, e.g., '/path/to/repo/')
 
-function sanitizePath($path) {
-    return str_replace('..', '', $path); // Basic security to prevent directory traversal
+// Normalize path to prevent double slashes
+$fullPath = rtrim($baseDir, '/') . '/' . ltrim($path, '/');
+if (!is_dir($baseDir)) {
+    die("Base directory does not exist or is not accessible");
 }
 
-if (isset($_GET['action']) || isset($_POST['action'])) {
-    $action = $_GET['action'] ?? $_POST['action'];
-
-    if ($action === 'list') {
-        $path = sanitizePath($_GET['path'] ?? '');
-        $fullPath = $baseDir . '/' . $path;
-        if (!is_dir($fullPath)) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Invalid directory']);
-            exit;
-        }
+switch ($action) {
+    case 'list':
+        if (!is_dir($fullPath)) die("Invalid directory: $fullPath");
         $files = scandir($fullPath);
         $result = [];
         foreach ($files as $file) {
-            if ($file === '.' || $file === '..' || in_array($file, $GLOBALS['hiddenFiles'])) continue;
-            $isDir = is_dir($fullPath . '/' . $file);
-            $result[] = ['name' => $file, 'isDir' => $isDir];
+            if ($file !== '.' && $file !== '..') {
+                $result[] = [
+                    'name' => $file,
+                    'isDir' => is_dir($fullPath . '/' . $file)
+                ];
+            }
         }
+        header('Content-Type: application/json');
         echo json_encode($result);
-    } elseif ($action === 'download') {
-        $path = sanitizePath($_GET['path']);
-        $filePath = $baseDir . '/' . $path;
-        if (in_array(basename($filePath), $GLOBALS['hiddenFiles'])) {
-            http_response_code(403);
-            echo json_encode(['error' => 'Access to this file is restricted']);
-            exit;
+        break;
+
+    case 'createFolder':
+        $name = $_POST['name'] ?? '';
+        if (!$name) die('No folder name provided');
+        $newFolderPath = $fullPath . '/' . $name;
+        if (file_exists($newFolderPath)) {
+            die("Folder already exists: $name");
         }
-        if (file_exists($filePath) && !is_dir($filePath)) {
-            header('Content-Type: application/octet-stream');
-            header('Content-Disposition: attachment; filename="' . basename($filePath) . '"');
-            readfile($filePath);
-            exit;
+        if (mkdir($newFolderPath)) {
+            echo "Folder created successfully: $name";
         } else {
-            http_response_code(404);
-            echo json_encode(['error' => 'File not found']);
+            echo "Failed to create folder: Permission denied or invalid name";
         }
-    } elseif ($action === 'createFolder') {
-        $path = sanitizePath($_POST['path'] ?? '');
-        $name = sanitizePath($_POST['name'] ?? '');
-        $fullPath = $baseDir . '/' . $path . '/' . $name;
-        if (!file_exists($fullPath)) {
-            mkdir($fullPath, 0777, true);
-            echo 'Folder created';
+        break;
+
+    case 'upload':
+        if (!isset($_FILES['file'])) die('No file uploaded');
+        $file = $_FILES['file'];
+        $uploadPath = $fullPath . '/' . basename($file['name']);
+        if (move_uploaded_file($file['tmp_name'], $uploadPath)) {
+            echo "File uploaded successfully: " . basename($file['name']);
         } else {
-            echo 'Folder already exists';
+            echo "Failed to upload file: Permission denied or upload error";
         }
-    } elseif ($action === 'upload') {
-        $path = sanitizePath($_POST['path'] ?? '');
-        $fullPath = $baseDir . '/' . $path;
-        if (isset($_FILES['file'])) {
-            $file = $_FILES['file'];
-            if (in_array($file['name'], $GLOBALS['hiddenFiles'])) {
-                http_response_code(403);
-                echo 'Cannot upload restricted file';
-                exit;
-            }
-            $destination = $fullPath . '/' . $file['name'];
-            if (move_uploaded_file($file['tmp_name'], $destination)) {
-                echo 'File uploaded';
+        break;
+
+    case 'download':
+        $filePath = $fullPath;
+        if (!file_exists($filePath) || is_dir($filePath)) {
+            die("File not found or is a directory: $filePath");
+        }
+        header('Content-Type: application/octet-stream');
+        header('Content-Disposition: attachment; filename="' . basename($filePath) . '"');
+        header('Content-Length: ' . filesize($filePath));
+        readfile($filePath);
+        exit;
+
+    case 'cut':
+    case 'copy':
+        $source = $_POST['source'] ?? '';
+        $dest = $_POST['dest'] ?? '';
+        if (!$source || !$dest) die('Source or destination path missing');
+        $sourcePath = rtrim($baseDir, '/') . '/' . ltrim($source, '/');
+        $destPath = rtrim($baseDir, '/') . '/' . ltrim($dest, '/') . '/' . basename($source);
+        
+        if (!file_exists($sourcePath)) die("Source not found: $source");
+        if (file_exists($destPath)) die("Destination already exists: " . basename($source));
+        
+        if ($action === 'cut') {
+            if (rename($sourcePath, $destPath)) {
+                echo "File moved successfully: " . basename($source);
             } else {
-                http_response_code(500);
-                echo 'Upload failed';
+                echo "Failed to move file: Permission denied or error";
             }
-        }
-    } elseif ($action === 'cut' || $action === 'copy') {
-        $source = sanitizePath($_POST['source']);
-        $dest = sanitizePath($_POST['dest']);
-        $sourcePath = $baseDir . '/' . $source;
-        $destPath = $baseDir . '/' . $dest . '/' . basename($source);
-        if (in_array(basename($sourcePath), $GLOBALS['hiddenFiles'])) {
-            http_response_code(403);
-            echo 'Cannot modify restricted file';
-            exit;
-        }
-        if (file_exists($sourcePath)) {
-            if ($action === 'cut') {
-                if (rename($sourcePath, $destPath)) {
-                    echo 'File moved';
-                } else {
-                    http_response_code(500);
-                    echo 'Move failed';
-                }
-            } else {
-                if (is_dir($sourcePath)) {
-                    function copyDir($src, $dst) {
-                        mkdir($dst, 0777, true);
-                        $dir = opendir($src);
-                        while (($file = readdir($dir)) !== false) {
-                            if ($file === '.' || $file === '..' || in_array($file, $GLOBALS['hiddenFiles'])) continue;
+        } else { // copy
+            if (is_dir($sourcePath)) {
+                function copyDir($src, $dst) {
+                    if (!is_dir($dst)) mkdir($dst);
+                    $files = scandir($src);
+                    foreach ($files as $file) {
+                        if ($file !== '.' && $file !== '..') {
                             $srcPath = "$src/$file";
                             $dstPath = "$dst/$file";
-                            if (is_dir($srcPath)) copyDir($srcPath, $dstPath);
-                            else copy($srcPath, $dstPath);
+                            if (is_dir($srcPath)) {
+                                copyDir($srcPath, $dstPath);
+                            } else {
+                                copy($srcPath, $dstPath);
+                            }
                         }
-                        closedir($dir);
                     }
-                    copyDir($sourcePath, $destPath);
-                } else {
-                    copy($sourcePath, $destPath);
                 }
-                echo 'File copied';
-            }
-        } else {
-            http_response_code(404);
-            echo 'Source not found';
-        }
-    } elseif ($action === 'delete') {
-        $path = sanitizePath($_POST['path']);
-        $fullPath = $baseDir . '/' . $path;
-        if (in_array(basename($fullPath), $GLOBALS['hiddenFiles'])) {
-            http_response_code(403);
-            echo 'Cannot delete restricted file';
-            exit;
-        }
-        if (file_exists($fullPath)) {
-            if (is_dir($fullPath)) {
-                function deleteDir($dir) {
-                    $files = array_diff(scandir($dir), array_merge(['.', '..'], $GLOBALS['hiddenFiles']));
-                    foreach ($files as $file) {
-                        $path = "$dir/$file";
-                        is_dir($path) ? deleteDir($path) : unlink($path);
-                    }
-                    rmdir($dir);
-                }
-                deleteDir($fullPath);
+                copyDir($sourcePath, $destPath);
+                echo "Folder copied successfully: " . basename($source);
             } else {
-                unlink($fullPath);
+                if (copy($sourcePath, $destPath)) {
+                    echo "File copied successfully: " . basename($source);
+                } else {
+                    echo "Failed to copy file: Permission denied or error";
+                }
             }
-            echo 'File deleted';
-        } else {
-            http_response_code(404);
-            echo 'File not found';
         }
-    } else {
-        http_response_code(400);
-        echo json_encode(['error' => 'Invalid action']);
-    }
-    exit;
-}
+        break;
 
-http_response_code(400);
-echo json_encode(['error' => 'No action specified']);
+    case 'paste':
+        // Handled by cut/copy above; this case is redundant but kept for clarity
+        echo "Paste action not directly handled; use cut or copy";
+        break;
+
+    case 'delete':
+        $deletePath = $fullPath;
+        if (!file_exists($deletePath)) die("Path not found: $deletePath");
+        if (is_dir($deletePath)) {
+            function deleteDir($dir) {
+                $files = array_diff(scandir($dir), ['.', '..']);
+                foreach ($files as $file) {
+                    $path = "$dir/$file";
+                    is_dir($path) ? deleteDir($path) : unlink($path);
+                }
+                return rmdir($dir);
+            }
+            if (deleteDir($deletePath)) {
+                echo "Folder deleted successfully: " . basename($deletePath);
+            } else {
+                echo "Failed to delete folder: Permission denied or error";
+            }
+        } else {
+            if (unlink($deletePath)) {
+                echo "File deleted successfully: " . basename($deletePath);
+            } else {
+                echo "Failed to delete file: Permission denied or error";
+            }
+        }
+        break;
+
+    case 'search':
+        $query = $_GET['query'] ?? '';
+        if (!$query) die('No search query provided');
+        $result = [];
+        function searchDir($dir, $query, &$result) {
+            $files = scandir($dir);
+            foreach ($files as $file) {
+                if ($file !== '.' && $file !== '..') {
+                    $filePath = "$dir/$file";
+                    if (stripos($file, $query) !== false) {
+                        $result[] = [
+                            'name' => $file,
+                            'isDir' => is_dir($filePath)
+                        ];
+                    }
+                    if (is_dir($filePath)) {
+                        searchDir($filePath, $query, $result);
+                    }
+                }
+            }
+        }
+        searchDir($fullPath, $query, $result);
+        header('Content-Type: application/json');
+        echo json_encode($result);
+        break;
+
+    default:
+        echo "Invalid action: $action";
+}
 ?>
