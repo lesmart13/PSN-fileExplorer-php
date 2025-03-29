@@ -239,6 +239,40 @@
         .modal-content .cancel-btn:hover {
             background: #bbb;
         }
+        .flash-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 80%;
+        }
+        .flash-message {
+            background: #1976d2;
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            animation: fadeInOut 3s ease-in-out forwards;
+            text-align: center;
+            max-width: 500px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .flash-message.error {
+            background: #d32f2f;
+        }
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(-20px); }
+            10% { opacity: 1; transform: translateY(0); }
+            90% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-20px); }
+        }
         @media (max-width: 1024px) {
             .file-list.small { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
             .file-list.medium { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
@@ -279,10 +313,12 @@
             .file-icon { font-size: 1.2rem !important; }
             .context-menu { max-width: 150px; }
             .modal-content { width: 90%; }
+            .flash-message { max-width: 90%; white-space: normal; }
         }
     </style>
 </head>
 <body oncontextmenu="return false;">
+    <div class="flash-container" id="flashContainer"></div>
     <div class="container">
         <div class="header">
             <div class="breadcrumbs" id="breadcrumbs">
@@ -344,7 +380,16 @@
         let clipboard = { type: null, path: null };
         let allFiles = [];
         let selectedFile = null;
-        const hiddenItems = ['.git', 'README.md', 'index.php', 'file_explorer.php']; // Updated to hide app files
+        const hiddenItems = ['.git', 'README.md', 'index.php', 'file_explorer.php'];
+
+        function showFlashMessage(message, isError = false) {
+            const flashContainer = document.getElementById('flashContainer');
+            const flash = document.createElement('div');
+            flash.className = 'flash-message' + (isError ? ' error' : '');
+            flash.textContent = message;
+            flashContainer.appendChild(flash);
+            setTimeout(() => flash.remove(), 3000); // Remove after animation (3s)
+        }
 
         document.body.addEventListener('contextmenu', (e) => {
             e.preventDefault();
@@ -380,7 +425,7 @@
                     updateBreadcrumbs();
                     renderFileList(data);
                 })
-                .catch(error => alert('Error fetching files: ' + error));
+                .catch(error => showFlashMessage('Error fetching files: ' + error, true));
         }
 
         function renderFileList(files) {
@@ -476,9 +521,9 @@
             menu.innerHTML = `
                 <div onclick="showCreateFolderModal()"><span class="material-icons">create_new_folder</span>New Folder</div>
                 <div onclick="document.getElementById('fileUpload').click()"><span class="material-icons">upload_file</span>Upload File</div>
-                <div onclick="alert('Folder upload not implemented yet')"><span class="material-icons">folder</span>Upload Folder</div>
-                <div onclick="alert('Personalize feature coming soon!')"><span class="material-icons">palette</span>Personalize</div>
-                <div onclick="alert('Settings feature coming soon!')"><span class="material-icons">settings</span>Settings</div>
+                <div onclick="showFlashMessage('Folder upload not implemented yet', true)"><span class="material-icons">folder</span>Upload Folder</div>
+                <div onclick="showFlashMessage('Personalize feature coming soon!')"><span class="material-icons">palette</span>Personalize</div>
+                <div onclick="showFlashMessage('Settings feature coming soon!')"><span class="material-icons">settings</span>Settings</div>
             `;
             menu.style.display = 'block';
             adjustMenuPosition(menu, e.pageX, e.pageY);
@@ -504,7 +549,7 @@
         function createFolder() {
             const folderName = document.getElementById('folderNameInput').value.trim();
             if (!folderName) {
-                alert('Please enter a folder name.');
+                showFlashMessage('Please enter a folder name.', true);
                 return;
             }
             const formData = new FormData();
@@ -522,7 +567,7 @@
                 })
                 .then(msg => {
                     console.log('Create folder response:', msg); // Debug log
-                    alert(msg);
+                    showFlashMessage(msg, msg.includes('Failed') || msg.includes('exists'));
                     if (msg.includes('successfully')) {
                         hideCreateFolderModal();
                         fetchFiles(currentPath);
@@ -530,7 +575,7 @@
                 })
                 .catch(error => {
                     console.error('Error creating folder:', error);
-                    alert('Error creating folder: ' + error.message);
+                    showFlashMessage('Error creating folder: ' + error.message, true);
                 });
         }
 
@@ -569,15 +614,18 @@
             })
                 .then(response => response.text())
                 .then(msg => {
-                    alert(msg);
+                    showFlashMessage(msg);
                     fileInput.value = '';
                     fetchFiles(currentPath);
                 })
-                .catch(error => alert('Error uploading file: ' + error));
+                .catch(error => showFlashMessage('Error uploading file: ' + error, true));
         }
 
         function downloadSelectedFile() {
-            if (!selectedFile || selectedFile.dataset.isDir === 'true') return alert('Select a file to download!');
+            if (!selectedFile || selectedFile.dataset.isDir === 'true') {
+                showFlashMessage('Select a file to download!', true);
+                return;
+            }
             downloadFile(selectedFile.dataset.path);
         }
 
@@ -591,55 +639,70 @@
         }
 
         function cutFile() {
-            if (!selectedFile) return alert('Select a file or folder first!');
+            if (!selectedFile) {
+                showFlashMessage('Select a file or folder first!', true);
+                return;
+            }
             clipboard = { type: 'cut', path: selectedFile.dataset.path };
             selectedFile.classList.remove('selected');
             selectedFile = null;
-            alert('Item cut to clipboard');
+            showFlashMessage('Item cut to clipboard');
             updateFABVisibility();
         }
 
         function copyFile() {
-            if (!selectedFile) return alert('Select a file or folder first!');
+            if (!selectedFile) {
+                showFlashMessage('Select a file or folder first!', true);
+                return;
+            }
             clipboard = { type: 'copy', path: selectedFile.dataset.path };
             selectedFile.classList.remove('selected');
             selectedFile = null;
-            alert('Item copied to clipboard');
+            showFlashMessage('Item copied to clipboard');
             updateFABVisibility();
         }
 
         function pasteFile() {
-            if (!clipboard.path) return alert('Nothing in clipboard!');
+            if (!clipboard.path) {
+                showFlashMessage('Nothing in clipboard!', true);
+                return;
+            }
             fetch('file_explorer.php?action=' + clipboard.type + '&source=' + encodeURIComponent(clipboard.path) + '&dest=' + encodeURIComponent(currentPath), {
                 method: 'POST'
             })
                 .then(response => response.text())
                 .then(msg => {
-                    alert(msg);
+                    showFlashMessage(msg);
                     if (clipboard.type === 'cut') clipboard = { type: null, path: null };
                     fetchFiles(currentPath);
                 })
-                .catch(error => alert('Error pasting: ' + error));
+                .catch(error => showFlashMessage('Error pasting: ' + error, true));
         }
 
         function deleteFile() {
-            if (!selectedFile) return alert('Select a file or folder first!');
+            if (!selectedFile) {
+                showFlashMessage('Select a file or folder first!', true);
+                return;
+            }
             if (!confirm('Are you sure you want to delete ' + selectedFile.dataset.path.split('/').pop() + '?')) return;
             fetch('file_explorer.php?action=delete&path=' + encodeURIComponent(selectedFile.dataset.path), {
                 method: 'POST'
             })
                 .then(response => response.text())
                 .then(msg => {
-                    alert(msg);
+                    showFlashMessage(msg);
                     selectedFile = null;
                     fetchFiles(currentPath);
                 })
-                .catch(error => alert('Error deleting: ' + error));
+                .catch(error => showFlashMessage('Error deleting: ' + error, true));
         }
 
         function shareFile() {
             const selected = document.querySelector('.file-item.selected');
-            if (!selected) return alert('Select a file or folder first!');
+            if (!selected) {
+                showFlashMessage('Select a file or folder first!', true);
+                return;
+            }
             const shareLink = `${window.location.origin}/file_explorer.php?action=download&path=${encodeURIComponent(selected.dataset.path)}`;
             prompt('Copy this share link:', shareLink);
         }
@@ -659,7 +722,7 @@
                     allFiles = data;
                     renderFileList(data);
                 })
-                .catch(error => alert('Error searching files: ' + error));
+                .catch(error => showFlashMessage('Error searching files: ' + error, true));
         }
 
         fetchFiles();
